@@ -9,7 +9,6 @@ let targetCameraPosition = new THREE.Vector3();
 export function setupGestureControl(onResultsCallback) {
   const video = document.getElementById('gesture-video');
   
-  // Import des classes MediaPipe depuis l'objet global
   const { Hands } = window;
   const { Camera } = window;
   
@@ -49,6 +48,7 @@ export function handleGestureResults(results, camera, raycastTargets, settings, 
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (handedness === 'Right') {
+      // MAIN DROITE : Contrôle de l'intensité du soleil
       const intensity = THREE.MathUtils.clamp(10 - distance * 30, 1, 10);
       settings.sunIntensity = intensity;
       sunMat.emissiveIntensity = intensity;
@@ -58,6 +58,7 @@ export function handleGestureResults(results, camera, raycastTargets, settings, 
     }
 
     if (handedness === 'Left') {
+      // MAIN GAUCHE : Zoom caméra et sélection planètes
       const zoomFactor = THREE.MathUtils.clamp(1 - distance * 2, 0.5, 2);
       camera.zoom = zoomFactor;
       camera.updateProjectionMatrix();
