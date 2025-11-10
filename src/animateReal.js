@@ -51,6 +51,32 @@ export default function animateReal(camera, controls, composer, outlinePass) {
 
     // Update real orbital positions
     realOrbitController.update(scaledDeltaTime, settings.accelerationOrbit);
+    
+    // Debug: Log orbital controller status
+    if (Math.floor(currentTime / 1000) % 3 === 0 && deltaTime < 100) {
+      console.log('🌍 Orbital Debug:');
+      console.log('- Sun position (center):', sun.position.x.toFixed(1), sun.position.y.toFixed(1), sun.position.z.toFixed(1));
+      console.log('- realOrbitController planets:', Object.keys(realOrbitController.planets || {}));
+      console.log('- accelerationOrbit:', settings.accelerationOrbit);
+      console.log('- scaledDeltaTime:', scaledDeltaTime.toFixed(6));
+      
+      // Log positions of multiple planets
+      console.log('🪐 Planet Positions:');
+      console.log('- Mercury:', mercury.planet3d.position.x.toFixed(1), mercury.planet3d.position.y.toFixed(1), mercury.planet3d.position.z.toFixed(1));
+      console.log('- Venus:', venus.planet3d.position.x.toFixed(1), venus.planet3d.position.y.toFixed(1), venus.planet3d.position.z.toFixed(1));
+      console.log('- Earth:', earth.planet3d.position.x.toFixed(1), earth.planet3d.position.y.toFixed(1), earth.planet3d.position.z.toFixed(1));
+      console.log('- Mars:', mars.planet3d.position.x.toFixed(1), mars.planet3d.position.y.toFixed(1), mars.planet3d.position.z.toFixed(1));
+      
+      const earthPos = earth.planet3d.position;
+      const distanceToSun = Math.sqrt(earthPos.x * earthPos.x + earthPos.y * earthPos.y + earthPos.z * earthPos.z);
+      console.log('- Earth distance from Sun:', distanceToSun.toFixed(1));
+      
+      if (realOrbitController.planets.Earth) {
+        const earthData = realOrbitController.planets.Earth;
+        console.log('- Earth angle:', earthData.currentAngle.toFixed(3));
+        console.log('- Earth orbital speed:', earthData.orbitalSpeed.toFixed(6));
+      }
+    }
 
     // Animate moons and asteroids
     animateMoons();

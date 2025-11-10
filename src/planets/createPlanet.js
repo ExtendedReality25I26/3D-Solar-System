@@ -20,7 +20,15 @@ export function createPlanet(name, size, position, tilt, texture, bump, ring, at
   const planet3d = new THREE.Object3D();
   const planetSystem = new THREE.Group();
   planetSystem.add(planet);
-  planet.position.x = position;
+  
+  // For elliptical orbits, position the planet at center of its system
+  // The realOrbitController will handle the orbital positioning
+  if (useEllipticalOrbit) {
+    planet.position.set(0, 0, 0); // Planet at center of its orbital system
+  } else {
+    planet.position.x = position; // Original circular orbit behavior
+  }
+  
   planet.rotation.z = tilt * Math.PI / 180;
 
   // Only create circular orbit path for display if not using elliptical orbits

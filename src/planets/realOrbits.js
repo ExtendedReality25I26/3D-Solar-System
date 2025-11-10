@@ -62,22 +62,28 @@ export const orbitalData = {
 export class RealOrbitController {
   constructor() {
     this.time = 0;
-    this.earthOrbitSpeed = 0.001; // Base speed for Earth's orbit
+    this.earthOrbitSpeed = 0.005; // Augmenté de 0.001 à 0.005 pour un mouvement plus visible
     this.planets = {};
   }
 
   // Initialize a planet's orbital parameters
+  // Add a planet to the orbital system
   addPlanet(name, planetObject) {
     const data = orbitalData[name];
-    if (!data) return;
+    if (!data) {
+      console.warn(`No orbital data found for planet: ${name}`);
+      return;
+    }
 
     this.planets[name] = {
       object: planetObject,
       data: data,
-      currentAngle: 0,
-      // Calculate real orbital speed relative to Earth
-      orbitalSpeed: this.earthOrbitSpeed * (365 / data.orbitalPeriod)
+      currentAngle: Math.random() * Math.PI * 2, // Random starting position
+      orbitalSpeed: this.earthOrbitSpeed * (365 / data.orbitalPeriod),
+      position: new THREE.Vector3() // Initialize position
     };
+    
+    console.log(`✅ Added ${name} to real orbit system - Speed: ${this.planets[name].orbitalSpeed.toFixed(4)}`);
   }
 
   // Calculate elliptical orbit position
@@ -109,16 +115,19 @@ export class RealOrbitController {
       const y = pos.z * Math.sin(inclinationRad);
       const z = pos.z * Math.cos(inclinationRad);
 
-      // Update planet position
+      // Store the calculated position for the planet3d object (orbital container)
+      planet.position = new THREE.Vector3(pos.x, y, z);
+
+      // Validate position (avoid NaN or extreme values)
+      if (isNaN(pos.x) || isNaN(y) || isNaN(z) || 
+          Math.abs(pos.x) > 1000 || Math.abs(y) > 1000 || Math.abs(z) > 1000) {
+        console.warn(`⚠️ Invalid position for ${name}:`, pos.x, y, z);
+        return;
+      }
+
+      // Update planet3d position (this moves the entire planetary system)
       if (planet.object && planet.object.planet3d) {
-        planet.object.planet3d.rotation.y = planet.currentAngle;
-        
-        // Set planet position within its orbital system
-        if (planet.object.planet) {
-          planet.object.planet.position.x = pos.x;
-          planet.object.planet.position.y = y;
-          planet.object.planet.position.z = z;
-        }
+        planet.object.planet3d.position.copy(planet.position);
       }
     });
   }

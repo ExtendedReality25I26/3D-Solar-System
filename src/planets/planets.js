@@ -23,6 +23,10 @@ const sunSize = 697 / 40;
 const sunGeom = new THREE.SphereGeometry(sunSize, 32, 20);
 export const sun = new THREE.Mesh(sunGeom, sunMat);
 
+// Explicitly position the Sun at the center of the solar system
+sun.position.set(0, 0, 0);
+console.log('☀️ Sun positioned at center of solar system:', sun.position);
+
 // Create real orbit controller
 export const realOrbitController = new RealOrbitController();
 
@@ -45,6 +49,17 @@ export const uranus = createPlanet('Uranus', 25 / 4, 320, 82, '/images/uranus.jp
 export const neptune = createPlanet('Neptune', 24 / 4, 340, 28, '/images/neptune.jpg', null, null, null, null, true);
 export const pluto = createPlanet('Pluto', 1, 350, 57, '/images/plutomap.jpg', null, null, null, null, true);
 
+// Initialize planets in the real orbit controller immediately after creation
+realOrbitController.addPlanet('Mercury', mercury);
+realOrbitController.addPlanet('Venus', venus);
+realOrbitController.addPlanet('Earth', earth);
+realOrbitController.addPlanet('Mars', mars);
+realOrbitController.addPlanet('Jupiter', jupiter);
+realOrbitController.addPlanet('Saturn', saturn);
+realOrbitController.addPlanet('Uranus', uranus);
+realOrbitController.addPlanet('Neptune', neptune);
+realOrbitController.addPlanet('Pluto', pluto);
+
 export const raycastTargets = [
   mercury.planet, venus.planet, venus.Atmosphere,
   earth.planet, earth.Atmosphere, mars.planet,
@@ -64,25 +79,18 @@ export function createAllPlanets(scene) {
   scene.add(neptune.planet3d);
   scene.add(pluto.planet3d);
 
-  // Initialize real orbital system
-  realOrbitController.addPlanet('Mercury', mercury);
-  realOrbitController.addPlanet('Venus', venus);
-  realOrbitController.addPlanet('Earth', earth);
-  realOrbitController.addPlanet('Mars', mars);
-  realOrbitController.addPlanet('Jupiter', jupiter);
-  realOrbitController.addPlanet('Saturn', saturn);
-  realOrbitController.addPlanet('Uranus', uranus);
-  realOrbitController.addPlanet('Neptune', neptune);
-  realOrbitController.addPlanet('Pluto', pluto);
-
-  // Create elliptical orbit paths
-  realOrbitController.createOrbitPath('Mercury', scene);
-  realOrbitController.createOrbitPath('Venus', scene);
-  realOrbitController.createOrbitPath('Earth', scene);
-  realOrbitController.createOrbitPath('Mars', scene);
-  realOrbitController.createOrbitPath('Jupiter', scene);
-  realOrbitController.createOrbitPath('Saturn', scene);
-  realOrbitController.createOrbitPath('Uranus', scene);
-  realOrbitController.createOrbitPath('Neptune', scene);
-  realOrbitController.createOrbitPath('Pluto', scene);
+  // Create elliptical orbit paths (visual guides)
+  try {
+    realOrbitController.createOrbitPath('Mercury', scene);
+    realOrbitController.createOrbitPath('Venus', scene);
+    realOrbitController.createOrbitPath('Earth', scene);
+    realOrbitController.createOrbitPath('Mars', scene);
+    realOrbitController.createOrbitPath('Jupiter', scene);
+    realOrbitController.createOrbitPath('Saturn', scene);
+    realOrbitController.createOrbitPath('Uranus', scene);
+    realOrbitController.createOrbitPath('Neptune', scene);
+    realOrbitController.createOrbitPath('Pluto', scene);
+  } catch (error) {
+    console.warn('Could not create orbit paths:', error);
+  }
 }
