@@ -7,7 +7,17 @@ export function showPlanetInfo(name) {
   const data = planetData[name];
 
   title.innerText = name;
-  details.innerText = `Radius: ${data.radius}\nTilt: ${data.tilt}\nRotation: ${data.rotation}\nOrbit: ${data.orbit}\nDistance: ${data.distance}\nMoons: ${data.moons}\nInfo: ${data.info}`;
+  details.innerText = `Radius: ${data.radius}
+Tilt: ${data.tilt}
+Rotation: ${data.rotation}
+Orbit: ${data.orbit}
+Distance: ${data.distance}
+Moons: ${data.moons}
+Eccentricity: ${data.eccentricity}
+Orbital Speed: ${data.orbitSpeed}
+
+Info: ${data.info}`;
+
   info.style.display = 'block';
 }
 

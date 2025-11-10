@@ -22,6 +22,8 @@ import { updateCameraMovement, showPlanetInfo, closeInfo, closeInfoNoZoomOut } f
 import { setupGestureControl } from './interaction/gestureControl.js';
 import { handleMouseDown } from './interaction/raycasting.js';
 
+// Import the new real animation system
+import animateReal, { displayOrbitInfo } from './animateReal.js';
 
 // Declare and initialize mouse vector
 const mouse = new THREE.Vector2();
@@ -50,30 +52,23 @@ scene.background = cubeTextureLoader.load([
 import * as dat from 'dat.gui';
 const gui = new dat.GUI({ autoPlace: false });
 document.getElementById('gui-container').appendChild(gui.domElement);
-gui.add(settings, 'accelerationOrbit', 0, 10);
-gui.add(settings, 'acceleration', 0, 10);
+gui.add(settings, 'accelerationOrbit', 0, 10).name('Orbital Speed');
+gui.add(settings, 'acceleration', 0, 10).name('Rotation Speed');
 gui.add(settings, 'sunIntensity', 1, 10).onChange(value => {
   sunMat.emissiveIntensity = value;
 });
+
+// Add button to display orbital info
+const orbitInfo = { showInfo: displayOrbitInfo };
+gui.add(orbitInfo, 'showInfo').name('Show Orbit Info');
 
 // Load planets and asteroids
 createAllPlanets(scene);
 loadAsteroids(scene, '/asteroids/asteroidPack.glb', 1000, 130, 160);
 loadAsteroids(scene, '/asteroids/asteroidPack.glb', 3000, 352, 370);
 
-// Animation loop
-function animate() {
-  sun.rotateY(0.001 * settings.acceleration);
-  animateMoons();
-  animateAsteroids(settings.accelerationOrbit);
-  updateRaycaster(camera);
-  outlineSelection(raycastTargets, outlinePass);
-  updateCameraMovement(camera, controls);
-  controls.update();
-  composer.render();
-  requestAnimationFrame(animate);
-}
-animate();
+// Start the real animation system
+animateReal(camera, controls, composer, outlinePass);
 
 // Mouse move handler to update mouse coordinates
 function handleMouseMove(event) {
@@ -94,3 +89,9 @@ window.closeInfo = closeInfo;
 
 // Gesture setup
 setupGestureControl(handleGestureResults);
+
+// Display initial orbital information
+console.log('🌍 Real Solar System Simulation Started!');
+console.log('📊 Orbital speeds are based on real astronomical data');
+console.log('🌎 Earth orbital period used as reference (365 days)');
+displayOrbitInfo();

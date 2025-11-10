@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { loadTexture } from '../textures/loader.js';
 
-export function createPlanet(name, size, position, tilt, texture, bump, ring, atmosphere, moons) {
+export function createPlanet(name, size, position, tilt, texture, bump, ring, atmosphere, moons, useEllipticalOrbit = true) {
   let material;
   if (texture instanceof THREE.Material) {
     material = texture;
@@ -23,13 +23,16 @@ export function createPlanet(name, size, position, tilt, texture, bump, ring, at
   planet.position.x = position;
   planet.rotation.z = tilt * Math.PI / 180;
 
-  const orbitPath = new THREE.EllipseCurve(0, 0, position, position, 0, 2 * Math.PI, false, 0);
-  const pathPoints = orbitPath.getPoints(100);
-  const orbitGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
-  const orbitMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.03 });
-  const orbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
-  orbit.rotation.x = Math.PI / 2;
-  planetSystem.add(orbit);
+  // Only create circular orbit path for display if not using elliptical orbits
+  if (!useEllipticalOrbit) {
+    const orbitPath = new THREE.EllipseCurve(0, 0, position, position, 0, 2 * Math.PI, false, 0);
+    const pathPoints = orbitPath.getPoints(100);
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+    const orbitMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.03 });
+    const orbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
+    orbit.rotation.x = Math.PI / 2;
+    planetSystem.add(orbit);
+  }
 
   let Ring, Atmosphere;
   if (ring) {
