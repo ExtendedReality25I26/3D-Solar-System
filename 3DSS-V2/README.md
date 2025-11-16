@@ -22,6 +22,7 @@ The goal of this version is to improve scalability, maintainability, and perform
 ---
 
 ## 🛠️ Project Structure
+```
 3DSS-V2/ 
 ├── images/ # Visual assets 
 ├── public/ # Static files served directly 
@@ -40,6 +41,6 @@ The goal of this version is to improve scalability, maintainability, and perform
 ├── package.json # Project metadata and dependencies 
 ├── package-lock.json # Dependency lock file 
 ├── README.md # Project documentation
-
+```
 ---
 
