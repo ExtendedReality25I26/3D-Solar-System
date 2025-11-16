@@ -23,24 +23,30 @@ An interactive 3D visualization of our solar system built with Three.js, featuri
 
 ## 📦 Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/ExtendedReality25I26/3D-Solar-System.git
-```
+To test this project without cloning the entire repository, you can use [DownGit](https://downgit.github.io/#/home) to download only the `3DSS-V2` folder:
 
-2. Navigate to the project directory:
-```bash
-cd 3D-Solar-System
-```
+1. Visit the DownGit link generator:  
+   👉 [https://downgit.github.io/#/home](https://downgit.github.io/#/home)
 
-3. Install dependencies:
+2. Paste the following GitHub folder URL into the input box:
+    https://github.com/ExtendedReality25I26/3D-Solar-System/tree/main/3DSS-V2
+
+3. Click **Download** to get the folder as a ZIP file.
+
+---
+
+Once downloaded:
+
 ```bash
+# Unzip the folder
+cd 3DSS-V2
+
+# Install dependencies
 npm install
-```
 
-4. Start the development server:
-```bash
+# Start development server
 npm run dev
+
 ```
 
 ## 🎮 Usage
@@ -49,25 +55,59 @@ npm run dev
 - **Zoom**: Use mouse wheel to zoom in/out
 
 
-## 🗂️ Project Structure
 
+## 🛠️ Project Structure
 ```
-src/
-├── animate.js            # Main animation loop
-├── interaction/          # User interaction handlers
-├── moons/               # Moon system configurations
-├── planets/             # Planet creation and data
-├── postprocessing/      # Visual effects
-├── setup/              # Core scene setup
-└── textures/           # Texture loading utilities
+3DSS-V2/
+├── images/                                
+│
+├── public/                                 # Static assets accessible by the browser
+│   ├── asteroids/                          # Asteroid field sprites, rock textures
+│   └── images/                             # Global textures: planets, moons, sun, maps, normals, speculars
+│                                           # ✔ Earth maps, gas giant textures, rocky planet textures, etc.
+│                                           # Used by planets.js via TextureLoader
+│
+├── src/                                    # Main source code (modular ES modules)
+│   ├── setup.js                            # Scene, camera, renderer, lights, controls, bloom, passes
+│                                           # Initializes the 3D environment and exports core objects
+│
+│   ├── planets.js                          # Planet creation + materials + edgy 3D visuals
+│                                           # Handles:
+│                                           #   ✔ Loading textures from /images/
+│                                           #   ✔ Planet meshes + atmospheres + fresnel glow
+│                                           #   ✔ Orbital animation logic
+│                                           #   ✔ Sun emissive material and glare
+│
+│   ├── interactions.js                     # Mouse interaction + raycasting + planet selection
+│                                           # Handles:
+│                                           #   ✔ Hover outline
+│                                           #   ✔ Click to focus planet
+│                                           #   ✔ Smooth camera transitions
+│                                           #   ✔ Info panel events
+│
+│   ├── test-errors/                        # Error logs, debugging utilities, experimental tests
+│
+│   └── main.js                             # Application entry point
+│                                           #   ✔ Imports setup, planets, interactions
+│                                           #   ✔ Animation loop (requestAnimationFrame)
+│                                           #   ✔ Updates orbits, rotations, and postprocessing
+│
+├── index.html                              # HTML container that loads main.js (type="module")
+│
+├── style.css                               # Global UI styles, typography, layout controls
+│
+├── package.json                            # Project metadata + dependencies (three.js, server, tooling)
+├── package-lock.json                       # Locked dependency versions
+│
+└── README.md                                # Documentation, usage instructions, development notes
+
 ```
 
 ## 🔧 Configuration
 
 The project includes several configurable aspects:
-- Planet properties in `planets/planetData.js`
-- Visual effects in `postprocessing/`
-- Camera and controls settings in `setup/`
+- Planet properties in `planets.js`
+- Camera and controls settings in `setup.js`
 
 ## 🎨 Features in Detail
 
@@ -109,4 +149,5 @@ The project includes several configurable aspects:
 
 
 wael
+
 
