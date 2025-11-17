@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar System</title>
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- MediaPipe Hands and Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js" defer></script>
+
+  <!-- dat.GUI via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+  <!-- OR use lil-gui (recommended modern alternative) -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.19/dist/lil-gui.min.js"></script> -->
+
+  <script type="module" src="/src/test-errors.js"></script>
+
+  <style>
+    #gui-container {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+    }
+    #virtualPointer {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div id="gui-container"></div>
+
+  <div id="planetInfo" class="planet-info">
+    <div class="planet-info-content">
+      <button class="close-btn" onclick="closeInfo()" aria-label="Close">&times;</button>
+      <h2 id="planetName"></h2>
+      <p id="planetDetails"></p>
+    </div>
+  </div>
+
+  <video id="gesture-video" style="display:none;" playsinline></video>
+  <div id="virtualPointer"></div>
+
+  <script type="module" src="./src/main.js"></script>
+
+  <script>
+    function closeInfo() {
+      document.getElementById("planetInfo").style.display = "none";
+    }
+  </script>
+</body>
+</html>
