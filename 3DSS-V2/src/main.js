@@ -71,6 +71,37 @@ import { initInteractions } from './interactions.js';
   planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
   planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
 
+  // Physical data for realistic rotation/orbit speeds
+  const earthSpinBase = 0.005;  // base spin speed for Earth (visual tuning)
+  const earthOrbitBase = 0.001; // base orbit speed for Earth (visual tuning)
+
+  const physical = {
+    mercury:  { rotH: 1407.6,  orbD: 87.969 },
+    venus:    { rotH: -5832.5, orbD: 224.701 },
+    earth:    { rotH: 23.934,  orbD: 365.256 },
+    mars:     { rotH: 24.623,  orbD: 686.98 },
+    jupiter:  { rotH: 9.925,   orbD: 4332.59 },
+    saturn:   { rotH: 10.656,  orbD: 10759 },
+    uranus:   { rotH: -17.24,  orbD: 30687 },
+    neptune:  { rotH: 16.11,   orbD: 60190 },
+    pluto:    { rotH: -153.29, orbD: 90560 }
+  };
+
+  function spinSpeed(name) {
+    const earthRot = physical.earth.rotH;
+    const rot = physical[name].rotH;
+    const ratio = earthRot / Math.abs(rot);
+    const sign = rot < 0 ? -1 : 1; // retrograde rotation
+    return earthSpinBase * ratio * sign * settings.acceleration;
+  }
+
+  function orbitSpeed(name) {
+    const earthOrb = physical.earth.orbD;
+    const orb = physical[name].orbD;
+    const ratio = earthOrb / orb;
+    return earthOrbitBase * ratio * settings.accelerationOrbit;
+  }
+
   // shadow properties (some basic assignment - adapt to what's present)
   try {
     if (planetsObj.planets.earth.planet) {
@@ -95,49 +126,49 @@ import { initInteractions } from './interactions.js';
     console.warn('Shadow assignment skipped for some objects:', e);
   }
 
-  // animation loop: uses settings & planetsObj (keeps same math as original)
+  // animation loop: uses settings & planetsObj with scientifically accurate speeds
   function animate() {
     // rotating planets around the sun and itself
     if (planetsObj.sun) planetsObj.sun.rotateY(0.001 * settings.acceleration);
 
     const p = planetsObj.planets;
     if (p.mercury) {
-      p.mercury.planet.rotateY(0.001 * settings.acceleration);
-      if (p.mercury.planet3d) p.mercury.planet3d.rotateY(0.004 * settings.accelerationOrbit);
+      p.mercury.planet.rotateY(spinSpeed('mercury'));
+      if (p.mercury.planet3d) p.mercury.planet3d.rotateY(orbitSpeed('mercury'));
     }
     if (p.venus) {
-      p.venus.planet.rotateY(0.0005 * settings.acceleration);
-      if (p.venus.Atmosphere) p.venus.Atmosphere.rotateY(0.0005 * settings.acceleration);
-      if (p.venus.planet3d) p.venus.planet3d.rotateY(0.0006 * settings.accelerationOrbit);
+      p.venus.planet.rotateY(spinSpeed('venus'));
+      if (p.venus.Atmosphere) p.venus.Atmosphere.rotateY(spinSpeed('venus'));
+      if (p.venus.planet3d) p.venus.planet3d.rotateY(orbitSpeed('venus'));
     }
     if (p.earth) {
-      p.earth.planet.rotateY(0.005 * settings.acceleration);
-      if (p.earth.Atmosphere) p.earth.Atmosphere.rotateY(0.001 * settings.acceleration);
-      if (p.earth.planet3d) p.earth.planet3d.rotateY(0.001 * settings.accelerationOrbit);
+      p.earth.planet.rotateY(spinSpeed('earth'));
+      if (p.earth.Atmosphere) p.earth.Atmosphere.rotateY(spinSpeed('earth') * 0.2);
+      if (p.earth.planet3d) p.earth.planet3d.rotateY(orbitSpeed('earth'));
     }
     if (p.mars) {
-      p.mars.planet.rotateY(0.01 * settings.acceleration);
-      if (p.mars.planet3d) p.mars.planet3d.rotateY(0.0007 * settings.accelerationOrbit);
+      p.mars.planet.rotateY(spinSpeed('mars'));
+      if (p.mars.planet3d) p.mars.planet3d.rotateY(orbitSpeed('mars'));
     }
     if (p.jupiter) {
-      p.jupiter.planet.rotateY(0.005 * settings.acceleration);
-      if (p.jupiter.planet3d) p.jupiter.planet3d.rotateY(0.0003 * settings.accelerationOrbit);
+      p.jupiter.planet.rotateY(spinSpeed('jupiter'));
+      if (p.jupiter.planet3d) p.jupiter.planet3d.rotateY(orbitSpeed('jupiter'));
     }
     if (p.saturn) {
-      p.saturn.planet.rotateY(0.01 * settings.acceleration);
-      if (p.saturn.planet3d) p.saturn.planet3d.rotateY(0.0002 * settings.accelerationOrbit);
+      p.saturn.planet.rotateY(spinSpeed('saturn'));
+      if (p.saturn.planet3d) p.saturn.planet3d.rotateY(orbitSpeed('saturn'));
     }
     if (p.uranus) {
-      p.uranus.planet.rotateY(0.005 * settings.acceleration);
-      if (p.uranus.planet3d) p.uranus.planet3d.rotateY(0.0001 * settings.accelerationOrbit);
+      p.uranus.planet.rotateY(spinSpeed('uranus'));
+      if (p.uranus.planet3d) p.uranus.planet3d.rotateY(orbitSpeed('uranus'));
     }
     if (p.neptune) {
-      p.neptune.planet.rotateY(0.005 * settings.acceleration);
-      if (p.neptune.planet3d) p.neptune.planet3d.rotateY(0.00008 * settings.accelerationOrbit);
+      p.neptune.planet.rotateY(spinSpeed('neptune'));
+      if (p.neptune.planet3d) p.neptune.planet3d.rotateY(orbitSpeed('neptune'));
     }
     if (p.pluto) {
-      p.pluto.planet.rotateY(0.001 * settings.acceleration);
-      if (p.pluto.planet3d) p.pluto.planet3d.rotateY(0.00006 * settings.accelerationOrbit);
+      p.pluto.planet.rotateY(spinSpeed('pluto'));
+      if (p.pluto.planet3d) p.pluto.planet3d.rotateY(orbitSpeed('pluto'));
     }
 
     // Animate Earth's moon(s)
