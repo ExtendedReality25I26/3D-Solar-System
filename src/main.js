@@ -106,7 +106,7 @@ import { initInteractions } from './interactions.js';
       if (p.mercury.planet3d) p.mercury.planet3d.rotateY(0.004 * settings.accelerationOrbit);
     }
     if (p.venus) {
-      p.venus.planet.rotateY(0.0005 * settings.acceleration);
+      p.venus.planet.rotateY(0.001639 * settings.acceleration);
       if (p.venus.Atmosphere) p.venus.Atmosphere.rotateY(0.001639 * settings.acceleration);
       if (p.venus.planet3d) p.venus.planet3d.rotateY(0.001639 * settings.accelerationOrbit);
     }
