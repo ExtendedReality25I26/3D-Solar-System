@@ -1,10 +1,10 @@
-// main.js
+import * as THREE from 'three';
 import { initSetup } from './setup.js';
 import { createPlanets } from './planets.js';
 import { initInteractions } from './interactions.js';
 
 (async function main() {
-  // Setup
+  // 1. Setup
   const {
     scene,
     camera,
@@ -19,19 +19,25 @@ import { initInteractions } from './interactions.js';
     mouse
   } = initSetup();
 
-  // Create planets & objects
+  // Horloge pour le temps unifié
+  const clock = new THREE.Clock();
+
+  // 2. Création des planètes
   const planetsObj = createPlanets(scene, loadTexture, settings, gui);
 
-  // Configure GUI controllers (link sunIntensity to sunMat later)
+  // 3. Configuration GUI (Temps Scientifique)
   if (gui) {
-    gui.add(settings, 'accelerationOrbit', 0, 10).onChange(() => {});
-    gui.add(settings, 'acceleration', 0, 10).onChange(() => {});
+    // Contrôle de l'échelle de temps (Jours par seconde)
+    gui.add(settings, 'timeScale', 0, 150, 0.1)
+       .name('Jours / Sec')
+       .listen(); // Met à jour l'UI si on change la valeur par code
+
     gui.add(settings, 'sunIntensity', 1, 10).onChange(value => {
       if (planetsObj.sunMat) planetsObj.sunMat.emissiveIntensity = value;
     });
   }
 
-  // Initialize interactions
+  // 4. Initialisation des interactions
   const interactions = initInteractions({
     camera,
     controls,
@@ -44,17 +50,19 @@ import { initInteractions } from './interactions.js';
     planetsObj
   });
 
-  // Start gesture controls (if mediapipe available)
   interactions.setupGestureControls();
 
-  // Load external models (Mars moons) if any
+  // 5. Chargement des modèles externes (Lunes de Mars)
   if (planetsObj.marsMoons) {
     planetsObj.marsMoons.forEach(moon => {
       if (moon.modelPath) {
-        planetsObj.loadObject(moon.modelPath, moon.position, moon.scale, function (loadedModel) {
+        planetsObj.loadObject(moon.modelPath, moon.position || 10, moon.scale, function (loadedModel) {
           moon.mesh = loadedModel;
+          // On ajoute au système planétaire de Mars pour qu'elles suivent la planète
           if (planetsObj.planets.mars && planetsObj.planets.mars.planetSystem) {
             planetsObj.planets.mars.planetSystem.add(moon.mesh);
+            
+            // Ombres
             moon.mesh.traverse(child => {
               if (child.isMesh) {
                 child.castShadow = true;
@@ -67,139 +75,138 @@ import { initInteractions } from './interactions.js';
     });
   }
 
-  // Load asteroids (two belts as in original)
-  planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
-  planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
+  // 6. Chargement des astéroïdes
+  planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 180);
+  planetsObj.loadAsteroids('/asteroids/asteroidPack.glb', 3000, 560, 620);
 
-  // shadow properties (some basic assignment - adapt to what's present)
+  // 7. Gestion des ombres (Shadows)
   try {
-    if (planetsObj.planets.earth.planet) {
-      planetsObj.planets.earth.planet.castShadow = true;
-      planetsObj.planets.earth.planet.receiveShadow = true;
-    }
-    if (planetsObj.planets.earth.Atmosphere) {
-      planetsObj.planets.earth.Atmosphere.castShadow = true;
-      planetsObj.planets.earth.Atmosphere.receiveShadow = true;
-    }
-    // assign shadows for moons and other planets if created
     Object.values(planetsObj.planets).forEach(p => {
       if (p && p.planet) {
         p.planet.castShadow = true;
         p.planet.receiveShadow = true;
+      }
+      if (p && p.Atmosphere) {
+        p.Atmosphere.castShadow = true;
+        p.Atmosphere.receiveShadow = true;
       }
       if (p && p.Ring) {
         p.Ring.receiveShadow = true;
       }
     });
   } catch (e) {
-    console.warn('Shadow assignment skipped for some objects:', e);
+    console.warn('Shadow assignment warning:', e);
   }
 
-  // animation loop: uses settings & planetsObj (keeps same math as original)
+  // ====================================================
+  // BOUCLE D'ANIMATION UNIFIÉE (SCIENTIFIQUE)
+  // ====================================================
   function animate() {
-    // rotating planets around the sun and itself
-    if (planetsObj.sun) planetsObj.sun.rotateY(0.001 * settings.acceleration);
+    // A. Calcul du temps écoulé
+    const dt = clock.getDelta();
+    const simulatedDays = dt * settings.timeScale;
 
-    const p = planetsObj.planets;
-    if (p.mercury) {
-      p.mercury.planet.rotateY(0.001 * settings.acceleration);
-      if (p.mercury.planet3d) p.mercury.planet3d.rotateY(0.004 * settings.accelerationOrbit);
-    }
-    if (p.venus) {
-      p.venus.planet.rotateY(0.001639 * settings.acceleration);
-      if (p.venus.Atmosphere) p.venus.Atmosphere.rotateY(0.001639 * settings.acceleration);
-      if (p.venus.planet3d) p.venus.planet3d.rotateY(0.001639 * settings.accelerationOrbit);
-    }
-    if (p.earth) {
-      p.earth.planet.rotateY(0.005 * settings.acceleration);
-      if (p.earth.Atmosphere) p.earth.Atmosphere.rotateY(0.001 * settings.acceleration);
-      if (p.earth.planet3d) p.earth.planet3d.rotateY(0.001 * settings.accelerationOrbit);
-    }
-    if (p.mars) {
-      p.mars.planet.rotateY(0.01 * settings.acceleration);
-      if (p.mars.planet3d) p.mars.planet3d.rotateY(0.00053 * settings.accelerationOrbit);
-    }
-    if (p.jupiter) {
-      p.jupiter.planet.rotateY(0.005 * settings.acceleration);
-      if (p.jupiter.planet3d) p.jupiter.planet3d.rotateY(0.000084 * settings.accelerationOrbit);
-    }
-    if (p.saturn) {
-      p.saturn.planet.rotateY(0.01 * settings.acceleration);
-      if (p.saturn.planet3d) p.saturn.planet3d.rotateY(0.000034 * settings.accelerationOrbit);
-    }
-    if (p.uranus) {
-      p.uranus.planet.rotateY(0.005 * settings.acceleration);
-      if (p.uranus.planet3d) p.uranus.planet3d.rotateY(0.0000119 * settings.accelerationOrbit);
-    }
-    if (p.neptune) {
-      p.neptune.planet.rotateY(0.005 * settings.acceleration);
-      if (p.neptune.planet3d) p.neptune.planet3d.rotateY(0.00000606 * settings.accelerationOrbit);
-    }
-    if (p.pluto) {
-      p.pluto.planet.rotateY(0.001 * settings.acceleration);
-      if (p.pluto.planet3d) p.pluto.planet3d.rotateY(0.00000403 * settings.accelerationOrbit);
+    // B. Rotation du Soleil (Période ~27 jours)
+    if (planetsObj.sun) {
+      // Si config dispo, sinon valeur par défaut
+      const period = planetsObj.sun.config?.physical?.rotationPeriod || 27;
+      planetsObj.sun.rotateY((simulatedDays / period) * 2 * Math.PI);
     }
 
-    // Animate Earth's moon(s)
-    if (p.earth && p.earth.moons) {
-      p.earth.moons.forEach(moon => {
-        const time = performance.now();
-        const tiltAngle = 5 * Math.PI / 180;
-        const moonX = p.earth.planet.position.x + moon.orbitRadius * Math.cos(time * moon.orbitSpeed);
-        const moonY = moon.orbitRadius * Math.sin(time * moon.orbitSpeed) * Math.sin(tiltAngle);
-        const moonZ = p.earth.planet.position.z + moon.orbitRadius * Math.sin(time * moon.orbitSpeed) * Math.cos(tiltAngle);
-        if (moon.mesh) {
-          moon.mesh.position.set(moonX, moonY, moonZ);
-          moon.mesh.rotateY(0.01);
+    // C. Animation des Planètes (Rotation + Orbite Kepler)
+    const planets = planetsObj.planets;
+    Object.values(planets).forEach(planetObj => {
+      if (!planetObj || !planetObj.planet) return;
+
+      const planet = planetObj.planet;
+      const animData = planet.animationData;
+      const config = planetObj.config ? planetObj.config.physical : null;
+
+      if (animData && config) {
+        // 1. Rotation sur elle-même (Jour/Nuit)
+        if (config.rotationPeriod && config.rotationPeriod !== 0) {
+           planet.rotateY((simulatedDays / config.rotationPeriod) * 2 * Math.PI);
         }
-      });
-    }
 
-    // Mars' moons (GLTF loaded)
+        // 2. Orbite autour du Soleil (Année)
+        if (config.orbitPeriod && config.orbitPeriod > 0) {
+          // Mise à jour de l'angle orbital
+          animData.angle += (simulatedDays / config.orbitPeriod) * 2 * Math.PI;
+          
+          // Calcul Kepler (Ellipse)
+          const x = animData.a * Math.cos(animData.angle) - animData.c;
+          const z = animData.b * Math.sin(animData.angle);
+          
+          // Déplacement du conteneur 3D de la planète
+          planetObj.planet3d.position.set(x, 0, z);
+        }
+
+        // 3. Atmosphère (rotation légèrement différente pour effet visuel)
+        if (planetObj.Atmosphere) {
+           const atmosSpeed = config.rotationPeriod ? config.rotationPeriod * 1.1 : 100;
+           planetObj.Atmosphere.rotateY((simulatedDays / atmosSpeed) * 2 * Math.PI);
+        }
+      }
+    });
+
+    // D. Animation des Lunes (Générique)
+    const updateMoon = (moon) => {
+      // On supporte soit moon.mesh (créé dans planets.js) soit moon.mesh (chargé via GLTF)
+      const mesh = moon.mesh;
+      if (!mesh) return;
+
+      // Initialisation angle si manquant
+      if (typeof moon.angle === 'undefined') moon.angle = Math.random() * Math.PI * 2;
+      
+      // Période orbitale (défaut 27 jours)
+      const period = moon.orbitPeriod || 27;
+      
+      // Avancement orbital
+      moon.angle += (simulatedDays / period) * 2 * Math.PI;
+      
+      // Position circulaire relative à la planète mère
+      // (Les lunes sont dans le groupe planetSystem, donc coordonnées locales)
+      const x = moon.orbitRadius * Math.cos(moon.angle);
+      const z = moon.orbitRadius * Math.sin(moon.angle);
+      
+      mesh.position.set(x, 0, z);
+      
+      // Rotation de la lune sur elle-même (Verrouillage gravitationnel simulé)
+      mesh.rotateY((simulatedDays / period) * 2 * Math.PI);
+    };
+
+    // Appliquer aux lunes de la Terre
+    if (planets.earth && planets.earth.moons) {
+      planets.earth.moons.forEach(updateMoon);
+    }
+    // Appliquer aux lunes de Mars
     if (planetsObj.marsMoons) {
-      planetsObj.marsMoons.forEach(moon => {
-        if (moon.mesh) {
-          const time = performance.now();
-          const moonX = p.mars.planet.position.x + moon.orbitRadius * Math.cos(time * moon.orbitSpeed);
-          const moonY = moon.orbitRadius * Math.sin(time * moon.orbitSpeed);
-          const moonZ = p.mars.planet.position.z + moon.orbitRadius * Math.sin(time * moon.orbitSpeed);
-          moon.mesh.position.set(moonX, moonY, moonZ);
-          moon.mesh.rotateY(0.001);
-        }
-      });
+      planetsObj.marsMoons.forEach(updateMoon);
     }
-
-    // Jupiter's moons
+    // Appliquer aux lunes de Jupiter
     if (planetsObj.jupiterMoons) {
-      planetsObj.jupiterMoons.forEach(moon => {
-        if (moon.mesh) {
-          const time = performance.now();
-          const moonX = p.jupiter.planet.position.x + moon.orbitRadius * Math.cos(time * moon.orbitSpeed);
-          const moonY = moon.orbitRadius * Math.sin(time * moon.orbitSpeed);
-          const moonZ = p.jupiter.planet.position.z + moon.orbitRadius * Math.sin(time * moon.orbitSpeed);
-          moon.mesh.position.set(moonX, moonY, moonZ);
-          moon.mesh.rotateY(0.01);
-        }
-      });
+      planetsObj.jupiterMoons.forEach(updateMoon);
     }
 
-    // Animate asteroids (if any)
+    // E. Astéroïdes (Rotation simple de fond)
     if (planetsObj.asteroids) {
       planetsObj.asteroids.forEach(asteroid => {
-        asteroid.rotation.y += 0.0001;
-        const cos = Math.cos(0.0001 * settings.accelerationOrbit);
-        const sin = Math.sin(0.0001 * settings.accelerationOrbit);
+        // Rotation lente autour du soleil
+        const orbitSpeed = 0.0001 * settings.timeScale; 
         const x = asteroid.position.x;
         const z = asteroid.position.z;
-        asteroid.position.x = x * cos + z * sin;
-        asteroid.position.z = z * cos - x * sin;
+        
+        // Rotation vectorielle 2D
+        asteroid.position.x = x * Math.cos(orbitSpeed) - z * Math.sin(orbitSpeed);
+        asteroid.position.z = x * Math.sin(orbitSpeed) + z * Math.cos(orbitSpeed);
+        
+        // Rotation sur eux-mêmes
+        asteroid.rotation.y += 0.01 * settings.timeScale;
       });
     }
 
-    // interactions per-frame updates (outlines, zooms, selection)
+    // F. Mises à jour finales
     interactions.updateOnFrame();
-
-    // update controls and render
     controls.update();
     composer.render();
 

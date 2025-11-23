@@ -1,277 +1,269 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-
-// textures & maps used by planets + sun + moons
-import sunTexture from '/public/images/sun.jpg';
-import mercuryTexture from '/public/images/mercurymap.jpg';
-import mercuryBump from '/public/images/mercurybump.jpg';
-import venusTexture from '/public/images/venusmap.jpg';
-import venusBump from '/public/images/venusmap.jpg';
-import venusAtmosphere from '/public/images/venus_atmosphere.jpg';
-import earthTexture from '/public/images/earth_daymap.jpg';
-import earthNightTexture from '/public/images/earth_nightmap.jpg';
-import earthAtmosphere from '/public/images/earth_atmosphere.jpg';
-import earthMoonTexture from '/public/images/moonmap.jpg';
-import earthMoonBump from '/public/images/moonbump.jpg';
-import marsTexture from '/public/images/marsmap.jpg';
-import marsBump from '/public/images/marsbump.jpg';
-import jupiterTexture from '/public/images/jupiter.jpg';
-import ioTexture from '/public/images/jupiterIo.jpg';
-import europaTexture from '/public/images/jupiterEuropa.jpg';
-import ganymedeTexture from '/public/images/jupiterGanymede.jpg';
-import callistoTexture from '/public/images/jupiterCallisto.jpg';
-import saturnTexture from '/public/images/saturnmap.jpg';
-import satRingTexture from '/public/images/saturn_ring.png';
-import uranusTexture from '/public/images/uranus.jpg';
-import uraRingTexture from '/public/images/uranus_ring.png';
-import neptuneTexture from '/public/images/neptune.jpg';
-import plutoTexture from '/public/images/plutomap.jpg';
+import { planetsConfig } from './data/planetsConfig.js';
 
 export function createPlanets(scene, loadTexture, settings, gui) {
-  // Helper: createPlanet (mostly copied from original, adapted to closure)
-  function createPlanet(planetName, size, position, tilt, texture, bump, ring, atmosphere, moons) {
+  
+  // Helper: Création d'une planète
+  function createPlanet(name, config) {
+    const { physical, assets, moons: moonConfigs } = config;
     let material;
-    if (texture instanceof THREE.Material) {
-      material = texture;
-    } else if (bump) {
+
+    // --- 1. Gestion des Matériaux ---
+    if (name === 'Earth' && assets.customShader) {
+      // Shader Terre (Jour/Nuit)
+      material = new THREE.ShaderMaterial({
+        uniforms: {
+          dayTexture: { value: loadTexture.load(assets.map) },
+          nightTexture: { value: loadTexture.load(assets.nightMap) },
+          sunPosition: { value: new THREE.Vector3(0, 0, 0) }
+        },
+        vertexShader: `
+          varying vec3 vNormal;
+          varying vec2 vUv;
+          varying vec3 vSunDirection;
+          uniform vec3 sunPosition;
+          void main() {
+            vUv = uv;
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vNormal = normalize(modelMatrix * vec4(normal, 0.0)).xyz;
+            vSunDirection = normalize(sunPosition - worldPosition.xyz);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D dayTexture;
+          uniform sampler2D nightTexture;
+          varying vec3 vNormal;
+          varying vec2 vUv;
+          varying vec3 vSunDirection;
+          void main() {
+            float intensity = max(dot(vNormal, vSunDirection), 0.0);
+            vec4 dayColor = texture2D(dayTexture, vUv);
+            vec4 nightColor = texture2D(nightTexture, vUv) * 0.2;
+            gl_FragColor = mix(nightColor, dayColor, intensity);
+          }
+        `
+      });
+    } else if (name === 'Sun' && assets.emissive) {
+      // Soleil
+      material = new THREE.MeshStandardMaterial({
+        emissive: assets.emissiveColor,
+        emissiveMap: loadTexture.load(assets.map),
+        emissiveIntensity: assets.emissiveIntensity
+      });
+    } else if (assets.bump) {
+      // Avec Bump Map
       material = new THREE.MeshPhongMaterial({
-        map: loadTexture.load(texture),
-        bumpMap: loadTexture.load(bump),
+        map: loadTexture.load(assets.map),
+        bumpMap: loadTexture.load(assets.bump),
         bumpScale: 0.7
       });
     } else {
+      // Standard
       material = new THREE.MeshPhongMaterial({
-        map: loadTexture.load(texture)
+        map: loadTexture.load(assets.map)
       });
     }
 
-    const name = planetName;
-    const geometry = new THREE.SphereGeometry(size, 32, 20);
+    // --- 2. Géométrie et Mesh ---
+    const geometry = new THREE.SphereGeometry(physical.radius, 32, 20);
     const planet = new THREE.Mesh(geometry, material);
-    const planet3d = new THREE.Object3D();
-    const planetSystem = new THREE.Group();
+    const planet3d = new THREE.Object3D(); // Conteneur pour position orbitale
+    const planetSystem = new THREE.Group(); // Conteneur pour inclinaison et lunes
+
+    // --- 3. Calculs de Kepler (Orbites Elliptiques) ---
+    let ellipticalData = {};
+    if (name !== 'Sun') {
+      const a = physical.distance; // Demi-grand axe
+      const e = physical.eccentricity || 0; // Excentricité
+      const b = a * Math.sqrt(1 - e * e); // Demi-petit axe
+      const c = a * e; // Distance focale
+      
+      ellipticalData = { a, b, c, eccentricity: e };
+      
+      // Position initiale (sera mise à jour par main.js)
+      planet.position.set(0, 0, 0);
+      
+      // Inclinaison de la planète (Axial Tilt)
+      planet.rotation.z = (physical.tilt || 0) * Math.PI / 180;
+
+      // --- 4. Dessin de l'orbite (Visuel) ---
+      const ellipsePoints = [];
+      const segments = 128;
+      for (let i = 0; i <= segments; i++) {
+        const theta = (i / segments) * Math.PI * 2;
+        const x = a * Math.cos(theta) - c;
+        const z = b * Math.sin(theta);
+        ellipsePoints.push(new THREE.Vector3(x, 0, z));
+      }
+      
+      const orbitGeometry = new THREE.BufferGeometry().setFromPoints(ellipsePoints);
+      const orbitMaterial = new THREE.LineBasicMaterial({ 
+        color: 0xFFFFFF, 
+        transparent: true, 
+        opacity: 0.15 
+      });
+      const orbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
+      // orbit.rotation.x = Math.PI / 2; // SUPPRIMER CETTE LIGNE
+      orbit.rotation.x = Math.PI / 2; // Garde-la uniquement si tu veux que l'orbite soit verticale, mais ici on veut du plat :
+      orbit.rotation.x = 0; // OU mets simplement 0
+      scene.add(orbit);
+    } else {
+      planet.position.set(0, 0, 0);
+    }
+
+    // Stockage des données pour l'animation
+    planet.animationData = {
+      angle: Math.random() * Math.PI * 2, // Angle de départ aléatoire
+      ...ellipticalData
+    };
+
     planetSystem.add(planet);
-    let Atmosphere;
+
+    // --- 5. Anneaux ---
     let Ring;
-    planet.position.x = position;
-    planet.rotation.z = tilt * Math.PI / 180;
-
-    // orbit path
-    const orbitPath = new THREE.EllipseCurve(
-      0, 0,
-      position, position,
-      0, 2 * Math.PI,
-      false,
-      0
-    );
-    const pathPoints = orbitPath.getPoints(100);
-    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
-    const orbitMaterial = new THREE.LineBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.03 });
-    const orbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
-    orbit.rotation.x = Math.PI / 2;
-    planetSystem.add(orbit);
-
-    // rings
-    if (ring) {
-      const RingGeo = new THREE.RingGeometry(ring.innerRadius, ring.outerRadius, 30);
+    if (assets.hasRings) {
+      const ringData = assets.rings;
+      const RingGeo = new THREE.RingGeometry(ringData.innerRadius, ringData.outerRadius, 64);
       const RingMat = new THREE.MeshStandardMaterial({
-        map: loadTexture.load(ring.texture),
-        side: THREE.DoubleSide
+        map: loadTexture.load(ringData.texture),
+        side: THREE.DoubleSide,
+        transparent: true
       });
       Ring = new THREE.Mesh(RingGeo, RingMat);
-      planetSystem.add(Ring);
-      Ring.position.x = position;
       Ring.rotation.x = -0.5 * Math.PI;
-      Ring.rotation.y = -tilt * Math.PI / 180;
+      Ring.rotation.y = -(physical.tilt || 0) * Math.PI / 180;
+      planetSystem.add(Ring);
     }
 
-    // atmosphere
-    if (atmosphere) {
-      const atmosphereGeom = new THREE.SphereGeometry(size + 0.1, 32, 20);
+    // --- 6. Atmosphère ---
+    let Atmosphere;
+    if (assets.atmosphere) {
+      const atmosphereGeom = new THREE.SphereGeometry(physical.radius + 0.15, 32, 20);
       const atmosphereMaterial = new THREE.MeshPhongMaterial({
-        map: loadTexture.load(atmosphere),
+        map: loadTexture.load(assets.atmosphere),
         transparent: true,
         opacity: 0.4,
-        depthTest: true,
-        depthWrite: false
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
       });
       Atmosphere = new THREE.Mesh(atmosphereGeom, atmosphereMaterial);
-      Atmosphere.rotation.z = 0.41;
-      planet.add(Atmosphere);
+      Atmosphere.rotation.z = (physical.tilt || 0) * Math.PI / 180;
+      planet.add(Atmosphere); // Attaché à la planète
     }
 
-    // moons: add simple mesh moons or preloaded models attached externally
-    if (moons) {
-      moons.forEach(moon => {
-        let moonMaterial;
-        if (moon.bump) {
-          moonMaterial = new THREE.MeshStandardMaterial({
-            map: loadTexture.load(moon.texture),
-            bumpMap: loadTexture.load(moon.bump),
-            bumpScale: 0.5
-          });
+    // --- 7. Lunes ---
+    let moons = [];
+    if (moonConfigs) {
+      moons = moonConfigs.map(moonConfig => {
+        // On prépare l'objet lune
+        const moonObj = { 
+          ...moonConfig, 
+          angle: Math.random() * Math.PI * 2,
+          mesh: null 
+        };
+
+        if (moonConfig.modelPath) {
+          // Modèle GLTF (chargement asynchrone géré dans main ou ici via callback)
+          // Pour l'instant on retourne la config, le mesh sera injecté via loadObject plus tard
+          // ou on laisse main.js gérer le chargement GLTF spécifique.
         } else {
-          moonMaterial = new THREE.MeshStandardMaterial({
-            map: loadTexture.load(moon.texture)
-          });
+          // Lune Mesh Standard
+          const moonMaterial = moonConfig.bump 
+            ? new THREE.MeshStandardMaterial({
+                map: loadTexture.load(moonConfig.texture),
+                bumpMap: loadTexture.load(moonConfig.bump),
+                bumpScale: 0.5
+              })
+            : new THREE.MeshStandardMaterial({
+                map: loadTexture.load(moonConfig.texture)
+              });
+          
+          const moonGeometry = new THREE.SphereGeometry(moonConfig.size, 32, 20);
+          const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+          
+          // Position initiale relative
+          moonMesh.position.set(moonConfig.orbitRadius, 0, 0);
+          planetSystem.add(moonMesh);
+          moonObj.mesh = moonMesh;
         }
-        const moonGeometry = new THREE.SphereGeometry(moon.size, 32, 20);
-        const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
-        const moonOrbitDistance = size * 1.5;
-        moonMesh.position.set(moonOrbitDistance, 0, 0);
-        planetSystem.add(moonMesh);
-        moon.mesh = moonMesh;
+        return moonObj;
       });
+    }
+
+    // --- 8. Lumière Soleil ---
+    let pointLight = null;
+    if (name === 'Sun' && config.light?.enabled) {
+      pointLight = new THREE.PointLight(
+        config.light.color,
+        config.light.intensity,
+        config.light.distance,
+        config.light.decay
+      );
+      scene.add(pointLight);
     }
 
     planet3d.add(planetSystem);
     scene.add(planet3d);
-    return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring };
+    
+    return { 
+      name, 
+      planet, 
+      planet3d, 
+      Atmosphere, 
+      moons, 
+      planetSystem, 
+      Ring,
+      pointLight,
+      config // IMPORTANT: On passe toute la config pour main.js
+    };
   }
 
-  // SUN
-  let sunMat;
-  const sunSize = 697 / 40;
-  const sunGeom = new THREE.SphereGeometry(sunSize, 32, 20);
-  sunMat = new THREE.MeshStandardMaterial({
-    emissive: 0xFFF88F,
-    emissiveMap: loadTexture.load(sunTexture),
-    emissiveIntensity: settings.sunIntensity
-  });
-  const sun = new THREE.Mesh(sunGeom, sunMat);
-  scene.add(sun);
-
-  // point light in the sun
-  const pointLight = new THREE.PointLight(0xFDFFD3, 1200, 400, 1.4);
-  scene.add(pointLight);
-
-  // Earth shader material (day/night)
-  const earthMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      dayTexture: { value: loadTexture.load(earthTexture) },
-      nightTexture: { value: loadTexture.load(earthNightTexture) },
-      sunPosition: { value: sun.position }
-    },
-    vertexShader: `
-      varying vec3 vNormal;
-      varying vec2 vUv;
-      varying vec3 vSunDirection;
-
-      uniform vec3 sunPosition;
-
-      void main() {
-        vUv = uv;
-        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-        vNormal = normalize(modelMatrix * vec4(normal, 0.0)).xyz;
-        vSunDirection = normalize(sunPosition - worldPosition.xyz);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D dayTexture;
-      uniform sampler2D nightTexture;
-
-      varying vec3 vNormal;
-      varying vec2 vUv;
-      varying vec3 vSunDirection;
-
-      void main() {
-        float intensity = max(dot(vNormal, vSunDirection), 0.0);
-        vec4 dayColor = texture2D(dayTexture, vUv);
-        vec4 nightColor = texture2D(nightTexture, vUv) * 0.2;
-        gl_FragColor = mix(nightColor, dayColor, intensity);
-      }
-    `
-  });
-
-  // moons definitions
-  const earthMoon = [{
-    size: 1.6,
-    texture: earthMoonTexture,
-    bump: earthMoonBump,
-    orbitSpeed: 0.001 * settings.accelerationOrbit,
-    orbitRadius: 10
-  }];
-
-  const marsMoons = [
-    {
-      modelPath: '/images/mars/phobos.glb',
-      scale: 0.1,
-      orbitRadius: 5,
-      orbitSpeed: 0.002 * settings.accelerationOrbit,
-      position: 100,
-      mesh: null
-    },
-    {
-      modelPath: '/images/mars/deimos.glb',
-      scale: 0.1,
-      orbitRadius: 9,
-      orbitSpeed: 0.0005 * settings.accelerationOrbit,
-      position: 120,
-      mesh: null
+  // --- Initialisation Globale ---
+  const celestialBodies = {};
+  const raycastTargets = [];
+  
+  Object.entries(planetsConfig).forEach(([name, config]) => {
+    const body = createPlanet(name, config);
+    
+    if (name === 'Sun') {
+      celestialBodies.sun = body.planet;
+      celestialBodies.sunMat = body.planet.material;
+      celestialBodies.pointLight = body.pointLight;
+      // Le soleil a aussi besoin de sa config pour la rotation
+      celestialBodies.sun.config = config; 
+    } else {
+      celestialBodies[name.toLowerCase()] = body;
+      raycastTargets.push(body.planet);
+      if (body.Atmosphere) raycastTargets.push(body.Atmosphere);
     }
-  ];
-
-  const jupiterMoons = [
-    { size: 1.6, texture: ioTexture, orbitRadius: 20, orbitSpeed: 0.0005 * settings.accelerationOrbit },
-    { size: 1.4, texture: europaTexture, orbitRadius: 24, orbitSpeed: 0.00025 * settings.accelerationOrbit },
-    { size: 2,   texture: ganymedeTexture, orbitRadius: 28, orbitSpeed: 0.000125 * settings.accelerationOrbit },
-    { size: 1.7, texture: callistoTexture, orbitRadius: 32, orbitSpeed: 0.00006 * settings.accelerationOrbit }
-  ];
-
-  // Create planets
-  const mercury = createPlanet('Mercury', 2.4, 40, 0, mercuryTexture, mercuryBump);
-  const venus = createPlanet('Venus', 6.1, 65, 3, venusTexture, venusBump, null, venusAtmosphere);
-  const earth = createPlanet('Earth', 6.4, 90, 23, earthMaterial, null, null, earthAtmosphere, earthMoon);
-  const mars = createPlanet('Mars', 3.4, 115, 25, marsTexture, marsBump);
-  const jupiter = createPlanet('Jupiter', 69 / 4, 200, 3, jupiterTexture, null, null, null, jupiterMoons);
-  const saturn = createPlanet('Saturn', 58 / 4, 270, 26, saturnTexture, null, {
-    innerRadius: 18,
-    outerRadius: 29,
-    texture: satRingTexture
   });
-  const uranus = createPlanet('Uranus', 25 / 4, 320, 82, uranusTexture, null, {
-    innerRadius: 6,
-    outerRadius: 8,
-    texture: uraRingTexture
+
+  // Références pour compatibilité
+  celestialBodies.earthMaterial = celestialBodies.earth?.planet.material;
+
+  // Données pour l'UI
+  const planetData = {};
+  Object.entries(planetsConfig).forEach(([name, config]) => {
+    planetData[name] = config.info;
   });
-  const neptune = createPlanet('Neptune', 24 / 4, 340, 28, neptuneTexture);
-  const pluto = createPlanet('Pluto', 1, 350, 57, plutoTexture);
 
-  // planetData (copied)
-  const planetData = {
-    'Mercury': { radius: '2,439.7 km', tilt: '0.034°', rotation: '58.6 Earth days', orbit: '88 Earth days', distance: '57.9 million km', moons: '0', info: 'The smallest planet...' },
-    'Venus':   { radius: '6,051.8 km', tilt: '177.4°', rotation: '243 Earth days', orbit: '225 Earth days', distance: '108.2 million km', moons: '0', info: 'Second planet...' },
-    'Earth':   { radius: '6,371 km', tilt: '23.5°', rotation: '24 hours', orbit: '365 days', distance: '150 million km', moons: '1 (Moon)', info: 'Third planet...' },
-    'Mars':    { radius: '3,389.5 km', tilt: '25.19°', rotation: '1.03 Earth days', orbit: '687 Earth days', distance: '227.9 million km', moons: '2 (Phobos and Deimos)', info: 'Known as the Red Planet...' },
-    'Jupiter': { radius: '69,911 km', tilt: '3.13°', rotation: '9.9 hours', orbit: '12 Earth years', distance: '778.5 million km', moons: '95 known moons', info: 'The largest planet...' },
-    'Saturn':  { radius: '58,232 km', tilt: '26.73°', rotation: '10.7 hours', orbit: '29.5 Earth years', distance: '1.4 billion km', moons: '146 known moons', info: 'Distinguished by its rings...' },
-    'Uranus':  { radius: '25,362 km', tilt: '97.77°', rotation: '17.2 hours', orbit: '84 Earth years', distance: '2.9 billion km', moons: '27 known moons', info: 'Unique sideways rotation.' },
-    'Neptune': { radius: '24,622 km', tilt: '28.32°', rotation: '16.1 hours', orbit: '165 Earth years', distance: '4.5 billion km', moons: '14 known moons', info: 'Most distant planet...' },
-    'Pluto':   { radius: '1,188.3 km', tilt: '122.53°', rotation: '6.4 Earth days', orbit: '248 Earth years', distance: '5.9 billion km', moons: '5', info: 'Dwarf planet...' }
-  };
-
-  // Raycast targets array
-  const raycastTargets = [
-    mercury.planet, venus.planet, venus.Atmosphere, earth.planet, earth.Atmosphere,
-    mars.planet, jupiter.planet, saturn.planet, uranus.planet, neptune.planet, pluto.planet
-  ];
-
-  // GLTF loader helper for models (asteroids & Mars moons)
+  // Helpers externes
   function loadObject(path, positionX, scale, callback) {
     const loader = new GLTFLoader();
     loader.load(path, function (gltf) {
       const obj = gltf.scene;
       obj.position.set(positionX, 0, 0);
       obj.scale.set(scale, scale, scale);
-      scene.add(obj);
+      // On n'ajoute pas à la scène ici si c'est une lune, le callback gérera l'ajout au parent
       if (callback) callback(obj);
+      else scene.add(obj);
     }, undefined, function (error) {
-      console.error('An error happened', error);
+      console.error('Error loading GLTF:', error);
     });
   }
 
-  // Asteroids loader (uses GLTF pack)
   const asteroids = [];
   function loadAsteroids(path, numberOfAsteroids, minOrbitRadius, maxOrbitRadius) {
     const loader = new GLTFLoader();
@@ -283,28 +275,43 @@ export function createPlanets(scene, loadTexture, settings, gui) {
             const orbitRadius = THREE.MathUtils.randFloat(minOrbitRadius, maxOrbitRadius);
             const angle = Math.random() * Math.PI * 2;
             const x = orbitRadius * Math.cos(angle);
-            const y = 0;
             const z = orbitRadius * Math.sin(angle);
-            child.receiveShadow = true;
-            asteroid.position.set(x, y, z);
+            
+            asteroid.position.set(x, 0, z);
             asteroid.scale.setScalar(THREE.MathUtils.randFloat(0.8, 1.2));
+            asteroid.rotation.y = Math.random() * Math.PI;
+            
             scene.add(asteroid);
             asteroids.push(asteroid);
           }
         }
       });
-    }, undefined, function (error) {
-      console.error('An error happened', error);
-    });
+    }, undefined, console.error);
   }
 
-  // Expose everything needed by interactions & animate loop
+  // Structure de retour unifiée
+  const planets = {
+    mercury: celestialBodies.mercury,
+    venus: celestialBodies.venus,
+    earth: celestialBodies.earth,
+    mars: celestialBodies.mars,
+    jupiter: celestialBodies.jupiter,
+    saturn: celestialBodies.saturn,
+    uranus: celestialBodies.uranus,
+    neptune: celestialBodies.neptune,
+    pluto: celestialBodies.pluto
+  };
+
+  // Extraction des lunes pour accès facile dans main.js
+  const jupiterMoons = planets.jupiter?.moons || [];
+  const marsMoons = planets.mars?.moons || [];
+
   return {
-    sun,
-    sunMat,
-    pointLight,
-    earthMaterial,
-    planets: { mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto },
+    sun: celestialBodies.sun,
+    sunMat: celestialBodies.sunMat,
+    pointLight: celestialBodies.pointLight,
+    earthMaterial: celestialBodies.earthMaterial,
+    planets,
     jupiterMoons,
     marsMoons,
     planetData,

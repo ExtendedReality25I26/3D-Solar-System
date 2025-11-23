@@ -74,8 +74,7 @@ export function initSetup() {
 
   // Settings object (shared)
   const settings = {
-    accelerationOrbit: 1,
-    acceleration: 1,
+    timeScale: 1.0, // 1 jour par seconde par défaut
     sunIntensity: 1.9
   };
 
