@@ -148,6 +148,4 @@ The project includes several configurable aspects:
 
 
 
-wael
-
 
